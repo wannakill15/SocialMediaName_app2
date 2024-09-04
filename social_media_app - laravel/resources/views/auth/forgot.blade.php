@@ -10,6 +10,7 @@
                     <h2 class="fw-bold text-secondary">Forgot Password</h2>
                 </div>
                 <div class="card-body p-5">
+                    <div id ="forgot_alert"></div>
                     <form action="#" method="POST" id="forgot_form">
                         @csrf
                         <div class="mb-3 text-secondary">
@@ -38,5 +39,32 @@
 @endsection
 
 @section('script')
-
+    <script>
+        $(function(){
+            $("#forgot_form").submit(function(e){
+                e.preventDefault();
+                $("forgot_btn").val('Please Wait...');
+                $.ajax({
+                    url: '{{ route('auth.forgot')}}',
+                    method:'post',
+                    data: $(this).serialize(),
+                    dataType: 'json',
+                    success: function(res){
+                        if(res.status == 400){
+                            showError('email', res.messages.email);
+                            $("#forgot_btn").val("Reset Password");
+                        }else if(res.status == 200){
+                            $("#forgot_alert").html(showMessage('success', res.messages));
+                            $("#forgot_btn").val('Reset Password');
+                            removeValidationClasses("#forgot_form");
+                            $("#forgot_form")[0].reset();
+                        }else{
+                            $("#forgot_btn").val('Reset Password');
+                            $("#forgot_alert").html(showMessage('danger', res.messages));
+                        }
+                    }
+                });
+            });
+        });
+    </script>
 @endsection
