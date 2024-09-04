@@ -27,12 +27,26 @@ class UserController extends Controller
         }
     }
 
-    public function forgot(){
-        return view('auth.forgot');
+    public function login(){
+        if(session()->has('loggedInUser')){
+            return redirect('/profile');
+        }else{
+            return view('auth.login');
+        }
     }
 
-    public function reset(){
-        return view('auth.reset');
+    public function forgot(){
+        if(session()->has('loggedInUser')){
+        return redirect('/profile');
+        }else{
+        return view('auth.forgot');
+        }
+    }
+
+    public function reset(Request $request){
+        $email = $request->email;
+        $token = $request->token;
+        return view('auth.reset', ['email' => $email, 'token' => $token]);
     }
 
     //handle register user ajax request
@@ -177,7 +191,7 @@ class UserController extends Controller
             if($user){
                 User::where('email', $request->email)->update([
                     'token' => $token,
-                    'token_expire' => Carbon::now()->addMinutes(10)->toDateString()
+                    'token_expire' => Carbon::now()->addMinutes(10)->toDateTimeString()
                 ]);
                 
                 Mail::to ($request->email)->send(new ForgotPassword($details));
@@ -189,6 +203,46 @@ class UserController extends Controller
                 return response()->json([
                     'status' => 401,
                     'messages' => 'This E-mail is not register!'
+                ]);
+            }
+        }
+    }
+
+    //handle reset password ajax request
+    public function resetPassword(Request $request){
+        $validator = Validator::make($request->all(), [
+            'npass' => 'required|min:6|max:50',
+            'cnpass' => 'required|min:6|max:50|same:npass'
+        ],[
+            'cnpass.same' => 'Password not match!'
+        ]);
+
+        if($validator->fails()){
+            return response()->json([
+                'status' => 400,
+                'messages' => $validator->getMessageBag()
+            ]);
+        }else{
+            $user = DB::table('users')->where('email', $request->email)->whereNotNull
+            ('token')->where('token', $request->token)->where('token_expire', '>',
+            Carbon::now())->exists();
+
+            if($user){
+                User::where('email', $request->email)->update([
+                    'password' => Hash::make($request->npass),
+                    'token' => null,
+                    'token_expire' => null
+                    
+                ]);
+
+                return response()->json([
+                    'status' => 200,
+                    'messages' => 'New password updated!&nbsp;&nbsp;<a href="/">Login Now</a>'
+                ]);
+            }else{
+                return response()->json([
+                    'status' => 401,
+                    'messages' => 'Reset link expired! Request for a new reset passoword!'
                 ]);
             }
         }
